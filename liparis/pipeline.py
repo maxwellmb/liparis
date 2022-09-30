@@ -17,7 +17,7 @@ class Datacube():
 
         self.nframes = self.data.shape[0]
 
-    def align_images(method = "peak"):
+    def align_images(self, images, method = "peak"):
         '''
         Align the image stack
 
@@ -52,7 +52,7 @@ class Datacube():
 
             sorted_indices = np.argsort(peak_values)
 
-            selected_indices = sorted_indices[-nframes_to_select:] #Ony pic the highest ones
+            selected_indices = sorted_indices[-nframes_to_select:] #Only pick the highest ones
 
             self.lucky_indices = selected_indices
         elif method == "fourier":
