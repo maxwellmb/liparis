@@ -7,10 +7,9 @@ from skimage.registration._phase_cross_correlation import _upsampled_dft
 from scipy import ndimage
 from pathlib import PurePosixPath
 
-
 class Datacube():
     
-    def __init__(self, file, outDir = './'):
+    def __init__(self, filename, outDir = './'):
         """
         
         Currently configured to work with data from VAMPIRES
@@ -24,17 +23,16 @@ class Datacube():
         
         """
         self.outDir = outDir
-        self.file = file
-        imageData = fits.open(file)
-        self.header = imageData[0].header
-        self.images = imageData[0].data
+        self.file = filename
+        with fits.open(filename) as hdul: 
+            self.header = hdul[0].header
+            self.images = hdul[0].data
         #self.images = np.array([hdu.data for hdu in imageData[1:]])
         self.image1 = self.images[0]
         self.imageDim0 = self.image1.shape[0]
         self.imageDim1 = self.image1.shape[1]
         self.numImages = self.images.shape[0]
 
-    
     def blur(self, image, sigma = 1/np.sqrt(2*np.log(2))):
         """
         
@@ -138,8 +136,6 @@ class Datacube():
         selInd = self.getHighestValsInd(ratioVals, selFrac)
         return ims[selInd]
     
-
-    
     def pse(self,  outDir = None, speckle = True, ratio = False, selFrac = 0.1):
         """
         
@@ -218,8 +214,9 @@ class Datacube():
         selFrac - Selection Fraction, value between 0 and 1
         
         """
+
+        ### Update the header
         hdr = self.header
-        
         hdr["ALGO"] = ('Fourier', 'Algorithm used in the creation of this image')
         hdr["SELFRAC"] = (selFrac, 'Portion (between 0 and 1) of data selected')
         
@@ -229,7 +226,7 @@ class Datacube():
             outDir = self.outDir
         
         path = PurePosixPath(self.file)
-        fileName = path.stem + '_FOURIER'
+        fileName = outDir+path.stem + '_FOURIER.fits'
         
         imageCubeFFT = np.zeros((self.numImages,self.imageDim0,self.imageDim1), dtype = 'complex_')
         imageCubeMag = np.zeros((self.numImages,self.imageDim0,self.imageDim1))
@@ -297,20 +294,22 @@ class Datacube():
         finalImageFFT = np.zeros((self.imageDim0,self.imageDim1), dtype = 'complex_')
         for i in range(self.imageDim0):
             for j in range(self.imageDim1):
-                for k in range(self.numImages):
-                    temparryMag[k] = imageCubeMag[k][i][j]
-                    temparryFFT[k] = imageCubeFFT[k][i][j]
+                # for k in range(self.numImages):
+                #     temparryMag[k] = imageCubeMag[k][i][j]
+                #     temparryFFT[k] = imageCubeFFT[k][i][j]
+                #MMB I think this should be faster, no? 
+                temparryMag[:] = imageCubeMag[:,i,j]
+                temparryFFT[:] = imageCubeFFT[:,i,j]
                 ind = self.getHighestValsInd(temparryMag,selFrac)
                 finalImageFFT[i][j] = np.mean(temparryFFT[ind])        
         
         
         finalImage =  np.fft.ifftshift(np.abs(np.fft.ifftshift(np.fft.ifftn(finalImageFFT))))
         
+        ## Write your files
         hdu = fits.ImageHDU(finalImage, hdr)
-        
-        hdu.writeto(outDir+fileName+'.fits')
-        
-        print(outDir+fileName+'.fits')
+        hdu.writeto(fileName)
+        print(fileName)
         
         return finalImage
     
@@ -325,22 +324,24 @@ class Datacube():
         selFrac - Selection fraction, value between 0 and 1
         
         """
+
+        ## Update the header.
         hdr = self.header
-        
         hdr["ALGO"] = ('Classic', 'Algorithm used in the creation of this image')
         hdr["SELFRAC"] = (selFrac, 'Portion (between 0 and 1) of data selected')
         
-        #print("Classic: " + str(selFrac))
-        
+        #The output filename
         path = PurePosixPath(self.file)
-        fileName = path.stem + '_CLASSIC'
-        
+        fileName = outDir + path.stem + '_CLASSIC.fits'
+
+        #How do you select - brightest pixel or ratio between the brightest pixel and total? 
         if ratio:
             selIms = self.ratioSelection(self.images, selFrac = selFrac)
         else:
             selIms = self.brightSelection(self.images, selFrac = selFrac)
         numSelIms = len(selIms)
         
+        #Select your images and shift them
         selShiftIms = np.zeros([numSelIms, self.imageDim0, self.imageDim1])
         if speckle:
             for i in range(numSelIms):
@@ -350,70 +351,75 @@ class Datacube():
                 selShiftIms[i] = self.getShift(selIms[i])
         shiftAndAdd = np.sum(selShiftIms, axis = 0)
         
+        #Normalize to get back to the same units as a single image
         finalImage = shiftAndAdd/numSelIms
         
+        #Write your new file
         hdu = fits.ImageHDU(finalImage, hdr)
+        hdu.writeto(fileName)
+        print("Writing to "+fileName)
         
-        hdu.writeto(outDir+fileName+'.fits')
-        
-        print(outDir+fileName+'.fits')
-        
-        return finalImage
+        return finalImage, fileName
     
-    def classicRev(self, outDir, speckle = True, ratio = False, selFrac = 0.1):   
-        """
+    # def classicRev(self, outDir, speckle = True, ratio = False, selFrac = 0.1):   
+    #     """
+    #     DEPRECATED. DO NOT USE. 
+
+    #     First shifts images then selects
+    #     Used to investigate phase_cross_correlation centering
+    #     phase_cross_correlation found to not work well when images are not selected
+    #     first
         
-        First shifts images then selects
-        Used to investigate phase_cross_correlation centering
-        phase_cross_correlation found to not work well when images are not selected
-        first
+    #     speckle - Boolean determines which centering method to use (True uses getSpeckleShift, 
+    #     False uses getShift)
+    #     selFrac - Selection fraction, value between 0 and 1
         
-        speckle - Boolean determines which centering method to use (True uses getSpeckleShift, 
-        False uses getShift)
-        selFrac - Selection fraction, value between 0 and 1
+    #     """
         
-        """
+    #     hdr = self.header
         
-        hdr = self.header
+    #     hdr["ALGO"] = ('Classic Reversed', 'Algorithm used in the creation of this image')
+    #     hdr["SELFRAC"] = (selFrac, 'Portion (between 0 and 1) of data selected')
         
-        hdr["ALGO"] = ('Classic Reversed', 'Algorithm used in the creation of this image')
-        hdr["SELFRAC"] = (selFrac, 'Portion (between 0 and 1) of data selected')
+    #     path = PurePosixPath(self.file)
+    #     fileName = path.stem + '_CLASREV'
         
-        path = PurePosixPath(self.file)
-        fileName = path.stem + '_CLASREV'
+    #     shiftIms = np.zeros([self.numImages, self.imageDim0, self.imageDim1])
+    #     if speckle:
+    #         #print('Sp. Shift')
+    #         for i in range(self.numImages):
+    #             shiftIms[i] = self.getSpeckleShift(self.images[i])
+    #     else:
+    #         #print('CC Shift')
+    #         for i in range(self.numImages):
+    #             shiftIms[i] = self.getShift(self.images[i])
+    #     if ratio:
+    #         selIms = self.ratioSelection(shiftIms, selFrac = selFrac)
+    #     else:
+    #         selIms = self.brightSelection(shiftIms, selFrac = selFrac)
+    #     numSelIms = len(selIms)
+    #     selAndAdd = np.sum(selIms, axis = 0)
         
-        shiftIms = np.zeros([self.numImages, self.imageDim0, self.imageDim1])
-        if speckle:
-            #print('Sp. Shift')
-            for i in range(self.numImages):
-                shiftIms[i] = self.getSpeckleShift(self.images[i])
-        else:
-            #print('CC Shift')
-            for i in range(self.numImages):
-                shiftIms[i] = self.getShift(self.images[i])
-        if ratio:
-            selIms = self.ratioSelection(shiftIms, selFrac = selFrac)
-        else:
-            selIms = self.brightSelection(shiftIms, selFrac = selFrac)
-        numSelIms = len(selIms)
-        selAndAdd = np.sum(selIms, axis = 0)
+    #     finalImage = selAndAdd/numSelIms
         
-        finalImage = selAndAdd/numSelIms
+    #     hdu = fits.ImageHDU(finalImage, hdr)
         
-        hdu = fits.ImageHDU(finalImage, hdr)
+    #     hdu.writeto(outDir+fileName+'.fits')
         
-        hdu.writeto(outDir+fileName+'.fits')
+    #     print(outDir+fileName+'.fits')
         
-        print(outDir+fileName+'.fits')
-        
-        return finalImage
+    #     return finalImage
     
-    def shiftAndAdd(self, outDir, fileName, speckle = True):
+    def shiftAndAdd(self, outDir=None, fileName=None, speckle = True):
         
         hdr = self.header
         hdr["ALGO"] = ('Shift and Add', 'Algorithm used in the creation of this image')
         hdr["SELFRAC"] = (1.0, 'Portion (between 0 and 1) of data selected')
         
+        path = PurePosixPath(self.file)
+        if fileName is None:
+            fileName = outDir+path.stem + '_SHIFT_ADD.fits'
+
         shiftIms = np.zeros([self.numImages, self.imageDim0, self.imageDim1])
         if speckle:
             #print('Sp. Shift')
@@ -428,7 +434,8 @@ class Datacube():
         
         hdu = fits.ImageHDU(finalImage, hdr)
         
-        hdu.writeto(outDir+fileName+'.fits')
+        hdu.writeto(fileName)
+        print("Wrote file to {}".format(fileName))
         
         return finalImage
     
