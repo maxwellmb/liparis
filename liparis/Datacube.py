@@ -9,7 +9,7 @@ from pathlib import PurePosixPath
 
 class Datacube():
     
-    def __init__(self, filename, outDir = './'):
+    def __init__(self, filename, outDir = './', xCent = None, yCent = None, xSize = None, ySize = None):
         """
         
         Currently configured to work with data from VAMPIRES
@@ -24,9 +24,24 @@ class Datacube():
         """
         self.outDir = outDir
         self.file = filename
-        with fits.open(filename) as hdul: 
+        with fits.open(filename) as hdul:
+            self.rawIm1 = hdul[0].data[0]
+            self.rawDim0 = self.rawIm1.shape[0]
+            self.rawDim1 = self.rawIm1.shape[1] 
             self.header = hdul[0].header
-            self.images = hdul[0].data
+            if xCent is not None:
+                xLow = xCent-int(xSize/2)
+                xLow = xLow*(xLow>0)
+                xHigh = xCent + int(xSize/2)
+                xHigh = xHigh*(xHigh <= self.rawDim1) + self.rawDim1*(xHigh > self.rawDim1)
+                yLow = yCent - int(ySize/2)
+                yLow = yLow*(yLow>0)
+                yHigh = yCent + int(ySize/2)
+                yHigh = yHigh*(yHigh <= self.rawDim0) + self.rawDim0*(yHigh > self.rawDim0)
+                self.images = hdul[0].data[:,yLow:yHigh,xLow:xHigh]
+            else:            
+                self.images = hdul[0].data
+            #self.images = hdul[0].data[:,xlow:xhigh,ylow:yhigh]
         #self.images = np.array([hdu.data for hdu in imageData[1:]])
         self.image1 = self.images[0]
         self.imageDim0 = self.image1.shape[0]
@@ -191,7 +206,7 @@ class Datacube():
         
         hdu = fits.ImageHDU(finalImage, hdr)
         
-        hdu.writeto(outDir+fileName+'.fits')
+        hdu.writeto(outDir+fileName+'.fits', overwrite = True)
         
         print(outDir+fileName+'.fits')
         
@@ -308,7 +323,7 @@ class Datacube():
         
         ## Write your files
         hdu = fits.ImageHDU(finalImage, hdr)
-        hdu.writeto(fileName)
+        hdu.writeto(fileName, overwrite = True)
         print(fileName)
         
         return finalImage
@@ -332,6 +347,9 @@ class Datacube():
         
         #The output filename
         path = PurePosixPath(self.file)
+        if outDir is None:
+            outDir = self.outDir
+
         fileName = outDir + path.stem + '_CLASSIC.fits'
 
         #How do you select - brightest pixel or ratio between the brightest pixel and total? 
@@ -356,10 +374,10 @@ class Datacube():
         
         #Write your new file
         hdu = fits.ImageHDU(finalImage, hdr)
-        hdu.writeto(fileName)
+        hdu.writeto(fileName, overwrite = True)
         print("Writing to "+fileName)
         
-        return finalImage, fileName
+        return finalImage
     
     # def classicRev(self, outDir, speckle = True, ratio = False, selFrac = 0.1):   
     #     """
@@ -417,6 +435,10 @@ class Datacube():
         hdr["SELFRAC"] = (1.0, 'Portion (between 0 and 1) of data selected')
         
         path = PurePosixPath(self.file)
+
+        if outDir is None:
+            outDir = self.outDir
+
         if fileName is None:
             fileName = outDir+path.stem + '_SHIFT_ADD.fits'
 
@@ -434,9 +456,29 @@ class Datacube():
         
         hdu = fits.ImageHDU(finalImage, hdr)
         
-        hdu.writeto(fileName)
+        hdu.writeto(fileName, overwrite = True)
         print("Wrote file to {}".format(fileName))
         
         return finalImage
     
+    def stack(self, outDir = None, fileName = None):
+        hdr = self.header
+        hdr["ALGO"] = ('Stack','Algorithm used in the creation of this image')
+        hdr["SELFRAC"] = ('1.0','Portion (between 0 and 1) of data selected')
+        
+        path = PurePosixPath(self.file)
+
+        if outDir is None:
+            outDir = self.outDir
+
+        if fileName is None:
+            fileName = outDir + path.stem + '_STACK.fits'
+
+        finalImage = np.mean(self.images, axis = 0)
+        hdu = fits.ImageHDU(finalImage, hdr)
+
+        hdu.writeto(fileName, overwrite = True)
+        return finalImage
+
+
 
