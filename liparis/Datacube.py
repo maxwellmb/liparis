@@ -241,7 +241,8 @@ class Datacube():
         
         return finalImage
     
-    def isfas(self, outDir = None, speckle = True, cutoffDenom = 300.0, selFrac = 0.1):
+    def isfas(self, outDir = None, speckle = True, cutoffDenom = 300.0, selFrac = 0.1, 
+                return_ft_avg_only=False):
         """
         
         Image Synthesis by Fourier Amplitude Selection (also called the Fourier method)
@@ -293,11 +294,25 @@ class Datacube():
         avgModMag = np.abs(avgMod)
            
         avgMax = np.amax(avgModMag)
+
+        if return_ft_avg_only: 
+            return avgModMag
         cutoff = avgMax/cutoffDenom
         
+
+        y,x = np.indices(avgModMag.shape)
+        x = x-avgModMag.shape[1]/2
+        y = y-avgModMag.shape[0]/2
+        rads = np.sqrt(x**2+y**2)
+
+
         indCut = avgModMag < cutoff
         for i in range(self.numImages):
-            imageCubeFFT[i][indCut] = 0
+            # imageCubeFFT[i][indCut] = 0
+            
+            #Testing here. If we're nyquist sampled then this is the cutoff frequency.
+            #This should change with wavelength
+            imageCubeFFT[i][rads>avgModMag.shape[0]/2] = 0
         
         """
         plt.figure()
