@@ -38,9 +38,9 @@ class Datacube():
                 yLow = yLow*(yLow>0)
                 yHigh = yCent + int(ySize/2)
                 yHigh = yHigh*(yHigh <= self.rawDim0) + self.rawDim0*(yHigh > self.rawDim0)
-                self.images = hdul[0].data[:,yLow:yHigh,xLow:xHigh]
+                self.images = hdul[0].data[:,yLow:yHigh,xLow:xHigh].astype(float)
             else:            
-                self.images = hdul[0].data
+                self.images = hdul[0].data.astype(float)
             #self.images = hdul[0].data[:,xlow:xhigh,ylow:yhigh]
         #self.images = np.array([hdu.data for hdu in imageData[1:]])
         self.image1 = self.images[0]
@@ -190,7 +190,7 @@ class Datacube():
                 selShiftIms[i] = self.getSpeckleShift(selIms[i])
         else:
             for i in range(numSelIms):
-                selShiftIms[i] = self.getShift(selIms[i])
+                selShiftIms[i] = self.getShift(selIms[i]).real
         shiftAndAdd = np.sum(selShiftIms, axis = 0)
         shiftAndAddFFT = np.fft.fftshift(np.fft.fftn(shiftAndAdd))
         phase = np.angle(shiftAndAddFFT)
@@ -248,7 +248,7 @@ class Datacube():
         for i in range(self.numImages):
             tempImage = self.images[i]
             if not speckle:
-                tempImageShift = self.getShift(tempImage)
+                tempImageShift = self.getShift(tempImage).real
             else:
                 tempImageShift = self.getSpeckleShift(tempImage)
             tempImageFFT = np.fft.fftn(tempImageShift)
@@ -256,10 +256,11 @@ class Datacube():
             tempImageBlur = self.blur(tempImageShift)
             imageCubeMag[i] = tempImageBlur
         
-        avgMod = np.zeros([self.imageDim0,self.imageDim1], dtype = 'complex_')
-        for i in range(self.numImages):
-            avgMod += imageCubeMag[i]
-        avgMod /= self.numImages
+        # avgMod = np.zeros([self.imageDim0,self.imageDim1], dtype = 'complex_')
+        # for i in range(self.numImages):
+        #     avgMod += imageCubeMag[i]
+        # avgMod /= self.numImages
+        avgMod = np.mean(imageCubeMag,axis=0)
         avgModMag = np.abs(avgMod)
            
         avgMax = np.amax(avgModMag)
@@ -366,7 +367,7 @@ class Datacube():
                 selShiftIms[i] = self.getSpeckleShift(selIms[i])
         else:
             for i in range(numSelIms):
-                selShiftIms[i] = self.getShift(selIms[i])
+                selShiftIms[i] = self.getShift(selIms[i]).real
         shiftAndAdd = np.sum(selShiftIms, axis = 0)
         
         #Normalize to get back to the same units as a single image
@@ -450,7 +451,7 @@ class Datacube():
         else:
             #print('CC Shift')
             for i in range(self.numImages):
-                shiftIms[i] = self.getShift(self.images[i])
+                shiftIms[i] = self.getShift(self.images[i]).real
         
         finalImage = np.mean(shiftIms, axis = 0)
         
