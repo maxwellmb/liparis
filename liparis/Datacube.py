@@ -80,6 +80,35 @@ class Datacube():
         imageShift = np.fft.ifftn(ndimage.fourier_shift(np.fft.fftn(image), shift))
         return imageShift
     
+    def fourier_filter(self,rows = [44,132]):
+        '''
+        In some cases there
+        The rows here are in the fourier domain and have only been tested in one case. 
+        '''
+        for i in range(self.images.shape[0]):
+
+            # def fourier_filter(data,rows = [44,132]):
+            data_fft = np.fft.fftshift(np.fft.fft2(self.images[i]))
+            
+            #Replace these rows with the median absolute value
+            for row in rows:
+                data_fft[row] = 0.5*(data_fft[row-1]+data_fft[row+1])
+                    # np.median(np.abs(data_fft))
+            
+            # data_fft[:,88] = 0.5*(data_fft[:,87]+data_fft[:,89])
+            filtered = np.fft.ifft2(np.fft.ifftshift(data_fft))
+
+            self.images[i] = np.abs(filtered)
+
+    def median_row_subtract(self,n_columns=10):
+        '''
+        Subtract the mean of each row as measured from the first and last n_columns
+        '''
+        for i in range(self.images.shape[0]):
+            first_last = np.delete(self.images[i],np.s_[n_columns:-n_columns],axis=1)
+            first_last_median = np.median(first_last,axis=1)
+            self.images[i] = self.images[i]-first_last_median[:,None]
+
     def getSpeckleShift(self, image, zoom = False, zF = 4.0):
         """
         
