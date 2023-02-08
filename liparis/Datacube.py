@@ -525,5 +525,94 @@ class Datacube():
         hdu.writeto(fileName, overwrite = True)
         return finalImage
 
+    def classicAssist(self,speckle = True, selFrac = 0.1):
+        selIms = self.brightSelection(self.images, selFrac = selFrac)
+        numSelIms = len(selIms)
+        image1 = selIms[0]
+        
+        selShiftIms = np.zeros([numSelIms, self.imageDim0, self.imageDim1])
+        if speckle:
+            for i in range(numSelIms):
+                selShiftIms[i] = self.getSpeckleShift(selIms[i])
+        else:
+            for i in range(numSelIms):
+                selShiftIms[i] = self.getShift(selIms[i])
+        shiftAndAdd = np.sum(selShiftIms, axis = 0)
+        return shiftAndAdd/numSelIms
+    
+    def isfasAssist(self, speckle = True, cutoffDenom = 300.0, selFrac = 0):
+        imageCubeFFT = np.zeros((self.numImages,self.imageDim0,self.imageDim1), dtype = 'complex_')
+        imageCubeMag = np.zeros((self.numImages,self.imageDim0,self.imageDim1))
+        for i in range(self.numImages):
+            tempImage = self.images[i]
+            if not speckle:
+                tempImageShift = self.getShift(tempImage)
+            else:
+                tempImageShift = self.getSpeckleShift(tempImage)
+            tempImageFFT = np.fft.fftn(tempImageShift)
+            imageCubeFFT[i] = np.fft.fftshift(tempImageFFT) 
+            tempImageBlur = self.blur(tempImageShift)
+            imageCubeMag[i] = tempImageBlur
+        
+        avgMod = np.zeros([self.imageDim0,self.imageDim1], dtype = 'complex_')
+        for i in range(self.numImages):
+            avgMod += imageCubeMag[i]
+        avgMod /= self.numImages
+        avgModMag = np.abs(avgMod)
+           
+        avgMax = np.amax(avgModMag)
+        cutoff = avgMax/cutoffDenom
+
+        indCut = avgModMag < cutoff
+        revCut = avgModMag > cutoff
+        for i in range(self.numImages):
+            imageCubeFFT[i][indCut] = 0
+
+        temparryMag = np.zeros(self.numImages)
+        temparryFFT = np.zeros(self.numImages, dtype = 'complex_')
+        finalImageFFT = np.zeros((self.imageDim0,self.imageDim1), dtype = 'complex_')
+        for i in range(self.imageDim0):
+            for j in range(self.imageDim1):
+                temparryMag[:] = imageCubeMag[:,i,j]
+                temparryFFT[:] = imageCubeFFT[:,i,j]
+                ind = self.getHighestValsInd(temparryMag,selFrac)
+                finalImageFFT[i][j] = np.mean(temparryFFT[ind])        
+        
+        finalImage = np.fft.ifftshift(np.abs(np.fft.ifftshift(np.fft.ifftn(finalImageFFT))))
+        
+        finalImageReturnFFT = np.fft.fftshift(finalImageFFT)
+        
+        return finalImage, finalImageReturnFFT, revCut
+    
+    def hybridLI(self, outDir = None, fileName = None, speckle = True, selFrac = 0.1):
+        
+        hdr = self.header
+        hdr["ALGO"] = ('Hybrid', 'Algorithm used in the creation of this image')
+        hdr["SELFRAC"] = (selFrac, 'Portion (between 0 and 1) of data selected')
+        
+        path = PurePosixPath(self.file)
+        fileName = self.outDir + path.stem + '_HYBRID.fits'
+        
+        
+        classicIm = self.classicAssist(speckle, selFrac)
+        isfasRes = self.isfasAssist(speckle, selFrac)
+        isfasIm = isfasRes[1]
+        isfasIndCut = isfasRes[2]
+        
+        isfasImShift = np.fft.fftshift(isfasIm)
+        classicImFFT = np.fft.fft2(classicIm)
+        classicImFFTShift = np.fft.fftshift(classicImFFT)
+        classicImFFTShift[isfasIndCut] = 0
+        
+        
+        finalImageFFT = classicImFFTShift + isfasImShift
+        
+        finalImage = np.fft.ifftshift(np.abs(np.fft.ifftshift(np.fft.ifftn(finalImageFFT))))
+        
+        hdu = fits.ImageHDU(finalImage, hdr)
+        hdu.writeto(fileName)
+        print("Writing to "+fileName)
+        
+        return finalImage
 
 
