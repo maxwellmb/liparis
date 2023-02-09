@@ -4,6 +4,7 @@ import skimage.io
 import skimage.filters
 from skimage.registration import phase_cross_correlation
 from skimage.registration._phase_cross_correlation import _upsampled_dft
+from scipy.ndimage import gaussian_filter
 from scipy import ndimage
 from pathlib import PurePosixPath
 
@@ -38,11 +39,14 @@ class Datacube():
                 yLow = yLow*(yLow>0)
                 yHigh = yCent + int(ySize/2)
                 yHigh = yHigh*(yHigh <= self.rawDim0) + self.rawDim0*(yHigh > self.rawDim0)
-                self.images = hdul[0].data[:,yLow:yHigh,xLow:xHigh].astype(float)
+                self.imageRaw = hdul[0].data[:,yLow:yHigh,xLow:xHigh].astype(float)
             else:            
-                self.images = hdul[0].data.astype(float)
+                self.imagesRaw = hdul[0].data.astype(float)
             #self.images = hdul[0].data[:,xlow:xhigh,ylow:yhigh]
         #self.images = np.array([hdu.data for hdu in imageData[1:]])
+
+        #self.images = gaussian_filter(self.imagesRaw, sigma = 2)
+        self.images = self.imagesRaw
         self.image1 = self.images[0]
         self.imageDim0 = self.image1.shape[0]
         self.imageDim1 = self.image1.shape[1]
