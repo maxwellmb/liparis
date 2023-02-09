@@ -125,13 +125,17 @@ class Datacube():
         if zoom:
             refImZoom = ndimage.zoom(self.image1, zF)
             imageZoom = ndimage.zoom(image, zF)
-            maxInd1 = np.unravel_index(refImZoom.argmax(), refImZoom.shape)
-            maxInd2 = np.unravel_index(imageZoom.argmax(), imageZoom.shape)
+            refImZoomBlur = gaussian_filter(refInZoom, sigma = 2)
+            imageZoomBlur = gaussian_filter(imageZoom, sigma = 2)
+            maxInd1 = np.unravel_index(refImZoomBlur.argmax(), refImZoomBlur.shape)
+            maxInd2 = np.unravel_index(imageZoomBlur.argmax(), imageZoomBlur.shape)
             shift = (np.asarray(maxInd1) - np.asarray(maxInd2))/zF
             image2Shift = np.fft.ifftn(ndimage.fourier_shift(np.fft.fftn(image),shift))
         else:
-            maxInd1 = np.unravel_index(self.image1.argmax(), self.image1.shape)
-            maxInd2 = np.unravel_index(image.argmax(), image.shape)
+            image1Blur = gaussian_filter(self.image1, sigma = 2)
+            image2Blur = gaussian_filter(image, sigma = 2)
+            maxInd1 = np.unravel_index(image1Blur.argmax(), image1Blur.shape)
+            maxInd2 = np.unravel_index(image2Blur.argmax(), image2Blur.shape)
             shift = (np.asarray(maxInd1) - np.asarray(maxInd2))
             image2Shift = np.fft.ifftn(ndimage.fourier_shift(np.fft.fftn(image),shift))
         return image2Shift
