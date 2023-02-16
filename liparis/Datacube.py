@@ -69,7 +69,7 @@ class Datacube():
         blurFFT = skimage.filters.gaussian(fftabs, sigma, mode = 'reflect', preserve_range = True, truncate = 1)
         return blurFFT
     
-    def getShift(self, image, usf = 100):
+    def getShift(self, image, image2 = None, usf = 100):
         """
         
         Uses cross-correlation to compute image offset
@@ -79,7 +79,10 @@ class Datacube():
         usf - upsample factor, 100 found to not slow it down too much,
         
         """
-        shift, error, diffphase = phase_cross_correlation(self.image1 - np.median(self.image1), image - np.median(image), upsample_factor=usf, normalization = 'phase')
+        if image2 is not None:
+            shift, error, diffphase = phase_cross_correlation(image - np.median(image), image2 - np.median(image2), upsample_factor=usf, normalization = None)
+        else:
+            shift, error, diffphase = phase_cross_correlation(self.image1 - np.median(self.image1), image - np.median(image), upsample_factor=usf, normalization = None)
         #return shift
         imageShift = np.fft.ifftn(ndimage.fourier_shift(np.fft.fftn(image), shift))
         return imageShift
