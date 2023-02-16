@@ -76,11 +76,12 @@ class Datacube():
         Returns shifted image
         Found that it might not work well for poor (un-selected) data
         image - Image to center
+        image2 - Optional alternate reference image
         usf - upsample factor, 100 found to not slow it down too much,
         
         """
         if image2 is not None:
-            shift, error, diffphase = phase_cross_correlation(image - np.median(image), image2 - np.median(image2), upsample_factor=usf, normalization = None)
+            shift, error, diffphase = phase_cross_correlation(image2 - np.median(image2), image - np.median(image), upsample_factor=usf, normalization = None)
         else:
             shift, error, diffphase = phase_cross_correlation(self.image1 - np.median(self.image1), image - np.median(image), upsample_factor=usf, normalization = None)
         #return shift
@@ -191,7 +192,7 @@ class Datacube():
         selInd = self.getHighestValsInd(ratioVals, selFrac)
         return ims[selInd]
     
-    def pse(self,  outDir = None, speckle = True, ratio = False, selFrac = 0.1):
+    def pse(self,  outDir = None, speckle = True, altCCShift = False, ratio = False, selFrac = 0.1):
         """
         
         Power Spectrum Extended
@@ -230,7 +231,10 @@ class Datacube():
                 selShiftIms[i] = self.getSpeckleShift(selIms[i])
         else:
             for i in range(numSelIms):
-                selShiftIms[i] = self.getShift(selIms[i]).real
+                if not altCCShift:
+                    selShiftIms[i] = self.getShift(selIms[i]).real
+                else:
+                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
         shiftAndAdd = np.sum(selShiftIms, axis = 0)
         shiftAndAddFFT = np.fft.fftshift(np.fft.fftn(shiftAndAdd))
         phase = np.angle(shiftAndAddFFT)
@@ -252,7 +256,7 @@ class Datacube():
         
         return finalImage
     
-    def isfas(self, outDir = None, speckle = True, cutoffDenom = 300.0, selFrac = 0.1, 
+    def isfas(self, outDir = None, speckle = True, altCCShift = True, cutoffDenom = 300.0, selFrac = 0.1, 
                 return_ft_avg_only=False):
         """
         
@@ -289,7 +293,10 @@ class Datacube():
         for i in range(self.numImages):
             tempImage = self.images[i]
             if not speckle:
-                tempImageShift = self.getShift(tempImage).real
+                if not altCCShift:
+                    selShiftIms[i] = self.getShift(selIms[i]).real
+                else:
+                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
             else:
                 tempImageShift = self.getSpeckleShift(tempImage)
             tempImageFFT = np.fft.fftn(tempImageShift)
@@ -384,7 +391,7 @@ class Datacube():
         
         return finalImage
     
-    def classic(self, outDir = None, speckle = True, ratio = False, selFrac = 0.1):
+    def classic(self, outDir = None, speckle = True, altCCShift = True, ratio = False, selFrac = 0.1):
         """
         
         Basic lucky imaging, first select then shift
@@ -422,7 +429,10 @@ class Datacube():
                 selShiftIms[i] = self.getSpeckleShift(selIms[i])
         else:
             for i in range(numSelIms):
-                selShiftIms[i] = self.getShift(selIms[i]).real
+                if not altCCShift:
+                    selShiftIms[i] = self.getShift(selIms[i]).real
+                else:
+                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
         shiftAndAdd = np.sum(selShiftIms, axis = 0)
         
         #Normalize to get back to the same units as a single image
@@ -484,7 +494,7 @@ class Datacube():
         
     #     return finalImage
     
-    def shiftAndAdd(self, outDir=None, fileName=None, speckle = True):
+    def shiftAndAdd(self, outDir=None, fileName=None, speckle = True, altCCShift = True):
         
         hdr = self.header
         hdr["ALGO"] = ('Shift and Add', 'Algorithm used in the creation of this image')
@@ -506,7 +516,10 @@ class Datacube():
         else:
             #print('CC Shift')
             for i in range(self.numImages):
-                shiftIms[i] = self.getShift(self.images[i]).real
+                if not altCCShift:
+                    selShiftIms[i] = self.getShift(selIms[i]).real
+                else:
+                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
         
         finalImage = np.mean(shiftIms, axis = 0)
         
@@ -536,7 +549,7 @@ class Datacube():
         hdu.writeto(fileName, overwrite = True)
         return finalImage
 
-    def classicAssist(self,speckle = True, selFrac = 0.1):
+    def classicAssist(self,speckle = True, altCCShift = True, selFrac = 0.1):
         selIms = self.brightSelection(self.images, selFrac = selFrac)
         numSelIms = len(selIms)
         image1 = selIms[0]
@@ -547,17 +560,23 @@ class Datacube():
                 selShiftIms[i] = self.getSpeckleShift(selIms[i])
         else:
             for i in range(numSelIms):
-                selShiftIms[i] = self.getShift(selIms[i])
+                if not altCCShift:
+                    selShiftIms[i] = self.getShift(selIms[i]).real
+                else:
+                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
         shiftAndAdd = np.sum(selShiftIms, axis = 0)
         return shiftAndAdd/numSelIms
     
-    def isfasAssist(self, speckle = True, cutoffDenom = 300.0, selFrac = 0):
+    def isfasAssist(self, speckle = True, cutoffDenom = 300.0, altCCShift = True, selFrac = 0):
         imageCubeFFT = np.zeros((self.numImages,self.imageDim0,self.imageDim1), dtype = 'complex_')
         imageCubeMag = np.zeros((self.numImages,self.imageDim0,self.imageDim1))
         for i in range(self.numImages):
             tempImage = self.images[i]
             if not speckle:
-                tempImageShift = self.getShift(tempImage)
+                if not altCCShift:
+                    selShiftIms[i] = self.getShift(selIms[i]).real
+                else:
+                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
             else:
                 tempImageShift = self.getSpeckleShift(tempImage)
             tempImageFFT = np.fft.fftn(tempImageShift)
@@ -595,7 +614,7 @@ class Datacube():
         
         return finalImage, finalImageReturnFFT, revCut
     
-    def hybridLI(self, outDir = None, fileName = None, speckle = True, selFrac = 0.1):
+    def hybridLI(self, outDir = None, fileName = None, speckle = True, altCCShift = True, selFrac = 0.1):
         
         hdr = self.header
         hdr["ALGO"] = ('Hybrid', 'Algorithm used in the creation of this image')
@@ -605,8 +624,8 @@ class Datacube():
         fileName = self.outDir + path.stem + '_HYBRID.fits'
         
         
-        classicIm = self.classicAssist(speckle, selFrac)
-        isfasRes = self.isfasAssist(speckle, selFrac)
+        classicIm = self.classicAssist(speckle, altCCShift, selFrac)
+        isfasRes = self.isfasAssist(speckle, altCCShift, selFrac)
         isfasIm = isfasRes[1]
         isfasIndCut = isfasRes[2]
         
