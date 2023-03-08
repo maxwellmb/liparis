@@ -10,7 +10,7 @@ from pathlib import PurePosixPath
 
 class Datacube():
     
-    def __init__(self, filename, outDir = './', xCent = None, yCent = None, xSize = None, ySize = None):
+    def __init__(self, filename, outDir = './', xCent = None, yCent = None, xSize = None, ySize = None, writeTo = True):
         """
         
         Currently configured to work with data from VAMPIRES
@@ -25,6 +25,7 @@ class Datacube():
         """
         self.outDir = outDir
         self.file = filename
+        self.writeTo = writeTo
         with fits.open(filename) as hdul:
             self.rawIm1 = hdul[0].data[0]
             self.rawDim0 = self.rawIm1.shape[0]
@@ -247,12 +248,12 @@ class Datacube():
         recPS = avPS * np.exp(1j*phase)
         
         finalImage = np.abs(np.fft.ifftn(recPS))
+        if self.writeTo:
+            hdu = fits.ImageHDU(finalImage, hdr)
         
-        hdu = fits.ImageHDU(finalImage, hdr)
+            hdu.writeto(outDir+fileName+'.fits', overwrite = True)
         
-        hdu.writeto(outDir+fileName+'.fits', overwrite = True)
-        
-        print(outDir+fileName+'.fits')
+            print(outDir+fileName+'.fits')
         
         return finalImage
     
@@ -384,10 +385,11 @@ class Datacube():
         
         finalImage =  np.fft.ifftshift(np.abs(np.fft.ifftshift(np.fft.ifftn(finalImageFFT))))
         
+        if self.writeTo:
         ## Write your files
-        hdu = fits.ImageHDU(finalImage, hdr)
-        hdu.writeto(fileName, overwrite = True)
-        print(fileName)
+            hdu = fits.ImageHDU(finalImage, hdr)
+            hdu.writeto(fileName, overwrite = True)
+            print(fileName)
         
         return finalImage
     
@@ -437,11 +439,11 @@ class Datacube():
         
         #Normalize to get back to the same units as a single image
         finalImage = shiftAndAdd/numSelIms
-        
-        #Write your new file
-        hdu = fits.ImageHDU(finalImage, hdr)
-        hdu.writeto(fileName, overwrite = True)
-        print("Writing to "+fileName)
+        if self.writeTo:
+            #Write your new file
+            hdu = fits.ImageHDU(finalImage, hdr)
+            hdu.writeto(fileName, overwrite = True)
+            print("Writing to "+fileName)
         
         return finalImage
     
@@ -522,11 +524,11 @@ class Datacube():
                     selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
         
         finalImage = np.mean(shiftIms, axis = 0)
+        if self.writeTo:
+            hdu = fits.ImageHDU(finalImage, hdr)
         
-        hdu = fits.ImageHDU(finalImage, hdr)
-        
-        hdu.writeto(fileName, overwrite = True)
-        print("Wrote file to {}".format(fileName))
+            hdu.writeto(fileName, overwrite = True)
+            print("Wrote file to {}".format(fileName))
         
         return finalImage
     
@@ -544,9 +546,10 @@ class Datacube():
             fileName = outDir + path.stem + '_STACK.fits'
 
         finalImage = np.mean(self.images, axis = 0)
-        hdu = fits.ImageHDU(finalImage, hdr)
+        if self.writeTo:
+            hdu = fits.ImageHDU(finalImage, hdr)
 
-        hdu.writeto(fileName, overwrite = True)
+            hdu.writeto(fileName, overwrite = True)
         return finalImage
 
     def classicAssist(self,speckle = True, altCCShift = True, selFrac = 0.1):
@@ -639,9 +642,10 @@ class Datacube():
         
         finalImage = np.fft.ifftshift(np.abs(np.fft.ifftshift(np.fft.ifftn(finalImageFFT))))
         
-        hdu = fits.ImageHDU(finalImage, hdr)
-        hdu.writeto(fileName)
-        print("Writing to "+fileName)
+        if writeTo:
+            hdu = fits.ImageHDU(finalImage, hdr)
+            hdu.writeto(fileName)
+            print("Writing to "+fileName)
         
         return finalImage
 
