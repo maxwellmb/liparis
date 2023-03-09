@@ -130,7 +130,7 @@ class Datacube():
         if zoom:
             refImZoom = ndimage.zoom(self.image1, zF)
             imageZoom = ndimage.zoom(image, zF)
-            refImZoomBlur = gaussian_filter(refInZoom, sigma = 2)
+            refImZoomBlur = gaussian_filter(refImZoom, sigma = 2)
             imageZoomBlur = gaussian_filter(imageZoom, sigma = 2)
             maxInd1 = np.unravel_index(refImZoomBlur.argmax(), refImZoomBlur.shape)
             maxInd2 = np.unravel_index(imageZoomBlur.argmax(), imageZoomBlur.shape)
@@ -235,7 +235,7 @@ class Datacube():
                 if not altCCShift:
                     selShiftIms[i] = self.getShift(selIms[i]).real
                 else:
-                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
+                    selShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
         shiftAndAdd = np.sum(selShiftIms, axis = 0)
         shiftAndAddFFT = np.fft.fftshift(np.fft.fftn(shiftAndAdd))
         phase = np.angle(shiftAndAddFFT)
@@ -295,9 +295,9 @@ class Datacube():
             tempImage = self.images[i]
             if not speckle:
                 if not altCCShift:
-                    selShiftIms[i] = self.getShift(selIms[i]).real
+                    tempImageShift = self.getShift(self.images[i]).real
                 else:
-                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
+                    tempImageShift = self.getShift(self.images[i], self.images[(i-1)*(i!=0)]).real
             else:
                 tempImageShift = self.getSpeckleShift(tempImage)
             tempImageFFT = np.fft.fftn(tempImageShift)
@@ -415,6 +415,8 @@ class Datacube():
         if outDir is None:
             outDir = self.outDir
 
+        print(type(outDir))
+        print(outDir)
         fileName = outDir + path.stem + '_CLASSIC.fits'
 
         #How do you select - brightest pixel or ratio between the brightest pixel and total? 
@@ -434,7 +436,7 @@ class Datacube():
                 if not altCCShift:
                     selShiftIms[i] = self.getShift(selIms[i]).real
                 else:
-                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
+                    selShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
         shiftAndAdd = np.sum(selShiftIms, axis = 0)
         
         #Normalize to get back to the same units as a single image
@@ -519,9 +521,9 @@ class Datacube():
             #print('CC Shift')
             for i in range(self.numImages):
                 if not altCCShift:
-                    selShiftIms[i] = self.getShift(selIms[i]).real
+                    shiftIms[i] = self.getShift(self.images[i]).real
                 else:
-                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
+                    shiftIms[i] = self.getShift(self.images[i], self.images[(i-1)*(i!=0)]).real
         
         finalImage = np.mean(shiftIms, axis = 0)
         if self.writeTo:
@@ -566,7 +568,7 @@ class Datacube():
                 if not altCCShift:
                     selShiftIms[i] = self.getShift(selIms[i]).real
                 else:
-                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
+                    selShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
         shiftAndAdd = np.sum(selShiftIms, axis = 0)
         return shiftAndAdd/numSelIms
     
@@ -577,9 +579,9 @@ class Datacube():
             tempImage = self.images[i]
             if not speckle:
                 if not altCCShift:
-                    selShiftIms[i] = self.getShift(selIms[i]).real
+                    tempImageShift = self.getShift(self.images[i]).real
                 else:
-                    selfShiftIms[i] = self.getShift(selIms[i], selIms[(i-1)*(i!=0)]).real
+                    tempImageShift = self.getShift(self.images[i], self.images[(i-1)*(i!=0)]).real
             else:
                 tempImageShift = self.getSpeckleShift(tempImage)
             tempImageFFT = np.fft.fftn(tempImageShift)
@@ -642,7 +644,7 @@ class Datacube():
         
         finalImage = np.fft.ifftshift(np.abs(np.fft.ifftshift(np.fft.ifftn(finalImageFFT))))
         
-        if writeTo:
+        if self.writeTo:
             hdu = fits.ImageHDU(finalImage, hdr)
             hdu.writeto(fileName)
             print("Writing to "+fileName)
