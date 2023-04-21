@@ -8,6 +8,7 @@ from scipy.ndimage import gaussian_filter
 from scipy import ndimage
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
+from matplotlib.colors import SymLogNorm
 import Datacube
 class compare():
 
@@ -28,7 +29,7 @@ class compare():
         col = im.T[maxInd[1]]
         return row, col
     
-    def getRings(self, image, numRings = 10):
+    def getRings(self, image, numRings = 10, fillIm = False, size = 2):
         imMax = np.unravel_index(image.argmax(), image.shape)
     
         X,Y = np.indices(image.shape)
@@ -36,9 +37,11 @@ class compare():
         Ycent = Y - imMax[1]
     
         radius = np.sqrt(Xcent**2 + Ycent**2)
-        radMax = np.amax(radius)
-        divSize = radMax/numRings
-    
+        if fillIm:
+            radMax = np.amax(radius)
+            divSize = radMax/numRings
+        else:
+            divSize = size
         ringVals = {}
     
         for i in range(numRings):
@@ -52,7 +55,7 @@ class compare():
     
         return yPlot, yErr  
 
-    def compareFuncs(self, speckle = True, rings = True, selFrac = 0.1):
+    def compareFuncs(self, speckle = True, rings = True, selFrac = 0.1, fillIm = False, numRings = 10):
         """
         
         Displays result of all lucky imaging algorithms for visual comparison
@@ -65,114 +68,147 @@ class compare():
         
         """
         pseRes = self.datacube.pse()
-        pseRes = np.abs(pseRes - np.median(pseRes))
+        pseRes = pseRes - np.median(pseRes)
         pseRoCo = self.getMaxRowCol(pseRes)
         pseRow = pseRoCo[0]
         pseCol = pseRoCo[1]
         
         classicRes = self.datacube.classic()
-        classicRes = np.abs(classicRes - np.median(classicRes))
+        classicRes = classicRes - np.median(classicRes)
         classicRoCo = self.getMaxRowCol(classicRes)
         classicRow = classicRoCo[0]
         classicCol = classicRoCo[1]
         
         hybridRes = self.datacube.hybridLI()
-        hybridRes = np.abs(hybridRes - np.median(hybridRes))
+        hybridRes = hybridRes - np.median(hybridRes)
         hybridRoCo = self.getMaxRowCol(hybridRes)
         hybridRow = hybridRoCo[0]
         hybridCol = hybridRoCo[1]
         
         isfasRes = self.datacube.isfas()
-        isfasRes = np.abs(isfasRes - np.median(isfasRes))
+        isfasRes = isfasRes - np.median(isfasRes)
         isfasRoCo = self.getMaxRowCol(isfasRes)
         isfasRow = isfasRoCo[0]
         isfasCol = isfasRoCo[1]
         
         saaRes = self.datacube.shiftAndAdd()
-        saaRes = np.abs(saaRes - np.median(saaRes))
+        saaRes = saaRes - np.median(saaRes)
         saaRoCo = self.getMaxRowCol(saaRes)
         saaRow = saaRoCo[0]
         saaCol = saaRoCo[1]
+
+        meanRes = self.datacube.mean()
+        meanRes = meanRes - np.median(meanRes)
+        meanRoCo = self.getMaxRowCol(meanRes)
+        meanRow = meanRoCo[0]
+        meanCol = meanRoCo[1]
         
         pseMax = np.amax(pseRes)
         classicMax = np.amax(classicRes)
         isfasMax = np.amax(isfasRes)
         saaMax = np.amax(saaRes)
         hybridMax = np.amax(hybridRes)
-        maxes = [pseMax,classicMax, isfasMax, saaMax, hybridMax]
+        meanMax = np.amax(meanRes)
+        maxes = [pseMax,classicMax, isfasMax, saaMax, hybridMax, meanMax]
         
         pseMin = np.amin(pseRes)
         classicMin = np.amin(classicRes)
         isfasMin = np.amin(isfasRes)
         saaMin = np.amin(saaRes)
         hybridMin = np.amin(hybridRes)
-        mins = [pseMin,classicMin, isfasMin, saaMin, hybridMin]
+        meanMin = np.amin(meanRes)
+        mins = [pseMin,classicMin, isfasMin, saaMin, hybridMin, meanMin]
         
-        vMin = 1
+        vMin = np.amin(mins)
         vMax = np.amax(maxes)
         
-        plt.figure(figsize = (9,9))
+        plt.figure(figsize = (12,12))
         if speckle:
             plt.suptitle('Final Images for LI Algorithms, Sp. Shift')
         else:
             plt.suptitle('Final Images for LI Algorithms, CC Shift')
             
-        plt.subplot(2,2,1)
+        plt.subplot(2,3,1)
         plt.title('Classic Lucky Imaging')
         plt.imshow(classicRes, cmap = 'gray', vmin = vMin, vmax = vMax)
         plt.colorbar()
         
-        plt.subplot(2,2,2)
+        plt.subplot(2,3,2)
         plt.title('Fourier Lucky Imaging')
         plt.imshow(isfasRes, cmap = 'gray', vmin = vMin, vmax = vMax)
         plt.colorbar()
         
-        plt.subplot(2,2,3)
+        plt.subplot(2,3,3)
         plt.title('Power Spectrum Extended')
         plt.imshow(pseRes, cmap = 'gray', vmin = vMin, vmax = vMax)
         plt.colorbar()
 
         
-        plt.subplot(2,2,4)
+        plt.subplot(2,3,4)
         plt.title('Shift and Add')
         plt.imshow(saaRes, cmap = 'gray', vmin = vMin, vmax = vMax)
         plt.colorbar()
-        
-        
-        plt.figure(figsize = (9,9))
+
+        plt.subplot(2,3,5)
+        plt.title('Hybrid')
+        plt.imshow(hybridRes, cmap = 'gray', vmin = vMin, vmax = vMax)
+        plt.colorbar()
+
+        plt.subplot(2,3,6)
+        plt.title('Mean')
+        plt.imshow(meanRes, cmap = 'gray', vmin = vMin, vmax = vMax)
+        plt.colorbar()
+    
+
+        plt.savefig('/Users/grossman/Desktop/Plots New/Lin_Norm.png')
+
+
+        plt.figure(figsize = (12,12))
         if speckle:
             plt.suptitle('Final Images for LI Algorithms, Log Norm, Sp. Shift')
         else:
             plt.suptitle('Final Images for LI Algorithms, Log Norm, CC Shift')
         
           
-        ln = LogNorm(vmin = vMin, vmax = vMax)
-        plt.subplot(2,2,1)
+        sln = SymLogNorm(linthresh = 1, vmin = vMin, vmax = vMax)
+        
+        plt.subplot(2,3,1)
         plt.title('Classic Lucky Imaging')
-        plt.imshow(classicRes, cmap = 'gray', norm = ln)
+        plt.imshow(classicRes, cmap = 'gray', norm = sln)
         plt.colorbar()
         
-        plt.subplot(2,2,2)
+        plt.subplot(2,3,2)
         plt.title('Fourier Lucky Imaging')
-        plt.imshow(isfasRes, cmap = 'gray', norm = ln)
+        plt.imshow(isfasRes, cmap = 'gray', norm = sln)
         plt.colorbar()
         
-        plt.subplot(2,2,3)
+        plt.subplot(2,3,3)
         plt.title('Power Spectrum Extended')
-        plt.imshow(pseRes, cmap = 'gray', norm = ln)
+        plt.imshow(pseRes, cmap = 'gray', norm = sln)
         plt.colorbar()
         
-        plt.subplot(2,2,4)
+        plt.subplot(2,3,4)
         plt.title('Shift and Add')
-        plt.imshow(saaRes, cmap = 'gray', norm = ln)
+        plt.imshow(saaRes, cmap = 'gray', norm = sln)
         plt.colorbar()
+
+        plt.subplot(2,3,5)
+        plt.title('Hybrid')
+        plt.imshow(hybridRes, cmap = 'gray', norm = sln)
+        plt.colorbar()
+
+        plt.subplot(2,3,6)
+        plt.title('Mean')
+        plt.imshow(meanRes, cmap = 'gray', norm = sln)
+        plt.colorbar()
+
+        
+        plt.savefig('/Users/grossman/Desktop/Plots New/Log_Norm.png')
         
         
-        plt.figure(figsize = (18,4))
-        
-        X = np.arange(0,classicRes.shape[0])
-        plt.subplot(1,3,1)
+        plt.figure()
         if not rings:
+            X = np.arange(0,classicRes.shape[0])
             plt.title('Rows and Columns Containing Maximum')
             plt.xlabel('Coordinate')
             plt.ylabel('Value')
@@ -188,64 +224,83 @@ class compare():
             #plt.plot(X, classicRevCol, label = 'RC LI Col', color = 'black', linestyle = 'dotted')
             plt.legend()
         else:
-            numRings = 10
-            classicPlot, classicErr = self.getRings(classicRes, numRings)
-            psePlot, pseErr = self.getRings(pseRes, numRings)
-            isfasPlot, isfasErr = self.getRings(isfasRes, numRings)
-            hybridPlot, hybridErr = self.getRings(hybridRes, numRings)
+            classicPlot, classicErr = self.getRings(classicRes)
+            psePlot, pseErr = self.getRings(pseRes)
+            isfasPlot, isfasErr = self.getRings(isfasRes)
+            hybridPlot, hybridErr = self.getRings(hybridRes)
+            saaPlot, saaErr = self.getRings(saaRes)
+            meanPlot, meanErr = self.getRings(meanRes)
 
             classicPlotNorm = classicPlot / np.amax(classicPlot)
             psePlotNorm = psePlot / np.amax(psePlot)
             isfasPlotNorm = isfasPlot / np.amax(isfasPlot)
             hybridPlotNorm = hybridPlot / np.amax(hybridPlot)
+            saaPlotNorm = saaPlot / np.amax(saaPlot)
+            meanPlotNorm = meanPlot / np.amax(meanPlot)
 
             classicErrNorm = classicErr / np.amax(classicErr)
             pseErrNorm = pseErr / np.amax(pseErr)
             isfasErrNorm = isfasErr / np.amax(isfasErr)
             hybridErrNorm = hybridErr / np.amax(hybridErr)
+            saaErrNorm = saaErr / np.amax(saaErr)
+            meanErrNorm = meanErr / np.amax(meanErr)
 
             classicErrNorm2 = classicErr / np.amax(classicPlot)
             pseErrNorm2 = pseErr / np.amax(psePlot)
             isfasErrNorm2 = isfasErr / np.amax(isfasPlot)
         
-            xPlot = np.arange(numRings)
+            xPlot = np.arange(numRings)*2
+
             plt.title('Average Brightness and Standard Deviation in Succesive Annuli')
-            plt.xlabel('Annulus Number')
+            plt.xlabel('Pixels from Center')
             plt.ylabel('Value')
             plt.semilogy()
             markers, caps, bars = plt.errorbar(xPlot, classicPlotNorm, classicErrNorm, fmt = 'o',color = 'red', 
-                    ecolor = 'black', elinewidth = 2, capsize=0, label = 'Classic LI')
+                    ecolor = 'red', elinewidth = 2, capsize=5, label = 'Classic LI')
             [bar.set_alpha(0.5) for bar in bars]
             [cap.set_alpha(0.5) for cap in caps]
+
             markers, caps, bars = plt.errorbar(xPlot, psePlotNorm, pseErrNorm, fmt = 'o',color = 'blue', 
-                    ecolor = 'brown', elinewidth = 2, capsize=0, label = 'PSE LI')
+                    ecolor = 'blue', elinewidth = 2, capsize=5, marker = 'P', label = 'PSE LI')
            
             [bar.set_alpha(0.5) for bar in bars]
             [cap.set_alpha(0.5) for cap in caps]
             
             markers, caps, bars = plt.errorbar(xPlot, isfasPlotNorm, isfasErrNorm, fmt = 'o',color = 'orange', 
-                    ecolor = 'green', elinewidth = 2, capsize=0, label = 'Fourier LI')
+                    ecolor = 'orange', elinewidth = 2, capsize=5, marker = 'h', label = 'Fourier LI')
             
             [bar.set_alpha(0.5) for bar in bars]
             [cap.set_alpha(0.5) for cap in caps]
 
             markers, caps, bars = plt.errorbar(xPlot, hybridPlotNorm, hybridErrNorm, fmt = 'o',color = 'gray', 
-                    ecolor = 'blue', elinewidth = 2, capsize=0, label = 'Hybrid LI')
+                    ecolor = 'gray', elinewidth = 2, capsize=5, marker = 's', label = 'Hybrid LI')
             
             [bar.set_alpha(0.5) for bar in bars]
             [cap.set_alpha(0.5) for cap in caps]
 
+            markers, caps, bars = plt.errorbar(xPlot, saaPlotNorm, saaErrNorm, fmt = 'o',color = 'green', 
+                    ecolor = 'green', elinewidth = 2, capsize=5, marker = 'X', label = 'Hybrid LI')
+            
+            [bar.set_alpha(0.5) for bar in bars]
+            [cap.set_alpha(0.5) for cap in caps]
+
+            markers, caps, bars = plt.errorbar(xPlot, meanPlotNorm, meanErrNorm, fmt = 'o',color = 'yellow', 
+                    ecolor = 'yellow', elinewidth = 2, capsize=5, marker = 'D', label = 'Hybrid LI')
+            
+            [bar.set_alpha(0.5) for bar in bars]
+            [cap.set_alpha(0.5) for cap in caps]
+
+            plt.plot(xPlot, classicPlotNorm, color = 'red')
+            plt.plot(xPlot, psePlotNorm, color = 'blue')
+            plt.plot(xPlot, isfasPlotNorm, color = 'orange')
+            plt.plot(xPlot, hybridPlotNorm, color = 'gray')
+            plt.plot(xPlot, saaPlotNorm, color = 'green')
+            plt.plot(xPlot, meanPlotNorm, color = 'yellow')
+
             plt.legend()
-        plt.subplot(1,3,2)
-        plt.title('Hybrid Lucky Imaging')
-        plt.imshow(hybridRes, cmap = 'gray', vmin = vMin, vmax = vMax)
-        plt.colorbar()
-        
-        plt.subplot(1,3,3)
-        plt.title('Hybrid Lucky Imaging')
-        plt.imshow(hybridRes, cmap = 'gray', norm = ln)
-        plt.colorbar()
-        
+
+        plt.savefig('/Users/grossman/Desktop/Plots New/Rings.png')
+    
         plt.show()
         
         return
@@ -256,12 +311,12 @@ class compare():
             X.append(i*10+10)
         
         classicBright = []
-        isfasBright = []
+        #isfasBright = []
         pseBright = []
         
         for x in X:
             classicBright.append(np.amax(self.datacube.classic(selFrac = x/100.0)))
-            isfasBright.append(np.amax(self.datacube.isfas(selFrac = x/100.0)))
+            #isfasBright.append(np.amax(self.datacube.isfas(selFrac = x/100.0)))
             pseBright.append(np.amax(self.datacube.pse(selFrac = x/100.0)))
             print(x)
         
@@ -270,9 +325,12 @@ class compare():
         plt.xlabel('Selection Percent (%)')
         plt.ylabel('Peak Brightness (value)')
         plt.scatter(X, classicBright, color = 'red', label = 'Classic LI')
-        plt.scatter(X, isfasBright, color = 'orange', label = 'Fourier LI')
+        #plt.scatter(X, isfasBright, color = 'orange', label = 'Fourier LI')
         plt.scatter(X, pseBright, color = 'blue', label = 'PSE LI')
         plt.legend()
+        
+        plt.savefig('/Users/grossman/Desktop/Plots New/selFracComp')
+
         plt.show()
 
 comp = compare(filename = '/Users/grossman/Desktop/tempFiles/orkid_2301160048_0006.fits')

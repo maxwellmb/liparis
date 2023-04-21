@@ -193,6 +193,32 @@ class Datacube():
         selInd = self.getHighestValsInd(ratioVals, selFrac)
         return ims[selInd]
     
+    def mean(self, outDir = None):
+        """
+        Arithmetic mean of all the images.
+        """
+
+        hdr = self.header
+
+        hdr["ALGO"] = ('Mean', 'Algorithm used in the creation of this image')
+        path = PurePosixPath(self.file)
+
+        fileName = path.stem + '_MEAN'
+
+        if outDir is None:
+            outDir = self.outDir
+
+        finalImage = np.mean(self.images, axis = 0)
+
+        if self.writeTo:
+            hdu = fits.ImageHDU(finalImage, hdr)
+        
+            hdu.writeto(outDir+fileName+'.fits', overwrite = True)
+        
+            print(outDir+fileName+'.fits')
+        
+        return finalImage
+
     def pse(self,  outDir = None, speckle = True, altCCShift = False, ratio = False, selFrac = 0.1):
         """
         
